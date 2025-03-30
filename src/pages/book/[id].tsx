@@ -10,16 +10,37 @@
 // optional catch all segment
 // [[...id]]는 여러개의 url parameter를 받을 수 있음 / url parameter가 없는 경우 undefined로 나옴
 // import { useRouter } from "next/router";
-import { GetServerSidePropsContext, InferGetServerSidePropsType } from "next";
+import { GetStaticPropsContext, InferGetStaticPropsType } from "next";
 import style from "./[id].module.css";
 import fetchOneBook from "@/lib/fetch-one-books";
+import { useRouter } from "next/router";
 
-export const getServerSideProps = async (
-  context: GetServerSidePropsContext
-) => {
+export const getStaticPaths = async () => {
+  return {
+    paths: [
+      { params: { id: "1" } }, // 반드시 id는 문자열로 들어감
+      { params: { id: "2" } },
+      { params: { id: "3" } },
+    ],
+    fallback: true, // false로 설정하면 없는 id로 접근할 경우 404 에러 페이지로 이동함.
+    /**
+     * false : 404 Not found
+     * blocking: SSR 방식
+     * true : SSR 방식 + 데이터가 없는 콜백 상태의 페이지부터 반환
+     */
+  };
+};
+
+export const getStaticProps = async (context: GetStaticPropsContext) => {
   const id = context.params!.id;
 
   const book = await fetchOneBook(Number(id));
+
+  if (!book) {
+    return {
+      notFound: true, // 404 페이지로 이동함.
+    };
+  }
   return {
     props: {
       book,
@@ -28,7 +49,13 @@ export const getServerSideProps = async (
 };
 export default function Page({
   book,
-}: InferGetServerSidePropsType<typeof getServerSideProps>) {
+}: InferGetStaticPropsType<typeof getStaticProps>) {
+  const router = useRouter();
+
+  if (router.isFallback) {
+    return <div>Loading...</div>; // fallback이 true일 때 보여줄 컴포넌트
+  }
+
   if (!book) return "문제가 발생했습니다. 다시 시도하세요.";
   const { id, title, subTitle, description, author, publisher, coverImgUrl } =
     book;
